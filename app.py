@@ -1,4 +1,4 @@
--- 1. 確保表格都已建立 (如果已存在則不會重複建)
+# 1. 確保表格都已建立 (如果已存在則不會重複建)
 CREATE TABLE IF NOT EXISTS room_types (
     type_id SERIAL PRIMARY KEY,
     type_name VARCHAR(50) NOT NULL,
@@ -34,17 +34,17 @@ CREATE TABLE IF NOT EXISTS reservations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. 清空舊資料 (避免重複塞入)
+#2. 清空舊資料 (避免重複塞入)
 TRUNCATE TABLE reservations, rooms, room_types, guests RESTART IDENTITY CASCADE;
 
--- 3. 塞入房型資料
+# 3. 塞入房型資料
 INSERT INTO room_types (type_name, base_price, capacity, description) VALUES
 ('標準單人房', 1500.00, 1, '適合背包客的經濟選擇'),
 ('豪華雙人房', 2800.00, 2, '情侶首選，附有獨立陽台'),
 ('溫馨四人房', 4500.00, 4, '家庭旅遊最愛，兩張大雙人床');
 
--- 4. 塞入房間資料
--- type_id 對應上面的順序：1=單人, 2=雙人, 3=四人
+# 4. 塞入房間資料
+# type_id 對應上面的順序：1=單人, 2=雙人, 3=四人
 INSERT INTO rooms (room_number, type_id, current_status) VALUES
 ('101', 1, 'Available'),
 ('102', 1, 'Available'),
@@ -53,5 +53,5 @@ INSERT INTO rooms (room_number, type_id, current_status) VALUES
 ('203', 2, 'Available'),
 ('301', 3, 'Available');
 
--- 5. 顯示結果確認一下
+# 5. 顯示結果確認一下
 SELECT * FROM rooms;
