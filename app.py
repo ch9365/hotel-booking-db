@@ -87,7 +87,7 @@ def search_rooms():
 
     # 若有人數篩選 (且值大於0)，加入 AND 條件
     if capacity and int(capacity) > 0:
-        query += " AND t.capacity >= %s"
+        query += " AND t.capacity = %s"
         params.append(capacity)
 
     query += " ORDER BY t.base_price, r.room_number;"
