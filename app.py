@@ -1,57 +1,177 @@
-# 1. 確保表格都已建立 (如果已存在則不會重複建)
-CREATE TABLE IF NOT EXISTS room_types (
-    type_id SERIAL PRIMARY KEY,
-    type_name VARCHAR(50) NOT NULL,
-    description TEXT,
-    base_price DECIMAL(10, 2) NOT NULL,
-    capacity INT NOT NULL
-);
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from flask import Flask, render_template, request, jsonify, session, redirect
 
-CREATE TABLE IF NOT EXISTS rooms (
-    room_id SERIAL PRIMARY KEY,
-    room_number VARCHAR(10) NOT NULL UNIQUE,
-    type_id INT NOT NULL REFERENCES room_types(type_id),
-    current_status VARCHAR(20) DEFAULT 'Available'
-);
+# 設定 Flask Secret Key (Session 需要用到，隨便打一串亂碼即可)
+app = Flask(__name__)
+app.secret_key = 'super_secret_key_hotel_project'
 
-CREATE TABLE IF NOT EXISTS guests (
-    guest_id SERIAL PRIMARY KEY,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    email VARCHAR(100),
-    phone VARCHAR(20),
-    identification_number VARCHAR(20)
-);
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-CREATE TABLE IF NOT EXISTS reservations (
-    reservation_id SERIAL PRIMARY KEY,
-    guest_id INT NOT NULL REFERENCES guests(guest_id),
-    room_id INT NOT NULL REFERENCES rooms(room_id),
-    check_in_date DATE NOT NULL,
-    check_out_date DATE NOT NULL,
-    total_price DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(20) DEFAULT 'Confirmed',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+def get_db_connection():
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable is not set")
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
 
-#2. 清空舊資料 (避免重複塞入)
-TRUNCATE TABLE reservations, rooms, room_types, guests RESTART IDENTITY CASCADE;
+@app.route('/')
+def index():
+    # 把登入資訊傳給前端
+    user = session.get('user')
+    return render_template('index.html', user=user)
 
-# 3. 塞入房型資料
-INSERT INTO room_types (type_name, base_price, capacity, description) VALUES
-('標準單人房', 1500.00, 1, '適合背包客的經濟選擇'),
-('豪華雙人房', 2800.00, 2, '情侶首選，附有獨立陽台'),
-('溫馨四人房', 4500.00, 4, '家庭旅遊最愛，兩張大雙人床');
+# API: 簡易登入 (手機 + Email)
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email')
+    phone = data.get('phone')
+    name = data.get('name') # 第一次登入順便填名字
 
-# 4. 塞入房間資料
-# type_id 對應上面的順序：1=單人, 2=雙人, 3=四人
-INSERT INTO rooms (room_number, type_id, current_status) VALUES
-('101', 1, 'Available'),
-('102', 1, 'Available'),
-('201', 2, 'Available'),
-('202', 2, 'Available'),
-('203', 2, 'Available'),
-('301', 3, 'Available');
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # 1. 先檢查這個 Email/Phone 是否存在
+    cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
+    user = cur.fetchone()
 
-# 5. 顯示結果確認一下
-SELECT * FROM rooms;
+    if not user:
+        # 2. 如果是新用戶，自動註冊
+        if not name:
+            return jsonify({"error": "新用戶請提供姓名"}), 400
+        cur.execute(
+            "INSERT INTO guests (first_name, last_name, email, phone, identification_number) VALUES (%s, '', %s, %s, 'N/A') RETURNING *",
+            (name, email, phone)
+        )
+        user = cur.fetchone()
+        conn.commit()
+
+    cur.close()
+    conn.close()
+
+    # 3. 寫入 Session (代表已登入)
+    session['user'] = user
+    return jsonify({"message": "登入成功", "user": user})
+
+# API: 登出
+@app.route('/api/logout')
+def logout():
+    session.clear()
+    return redirect('/')
+
+# API: 搜尋空房 (維持不變，稍微加強註解)
+@app.route('/api/search', methods=['GET'])
+def search_rooms():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # SQL 邏輯：找出「狀態不是 Cancelled」且「時間重疊」的訂單，排除這些房間
+    query = """
+        SELECT r.room_id, r.room_number, t.type_name, t.base_price, t.description
+        FROM rooms r
+        JOIN room_types t ON r.type_id = t.type_id
+        WHERE r.room_id NOT IN (
+            SELECT room_id 
+            FROM reservations
+            WHERE status != 'Cancelled'  -- 關鍵：已取消的訂單不算佔用
+            AND check_in_date < %s 
+            AND check_out_date > %s
+        )
+        ORDER BY t.base_price, r.room_number;
+    """
+    # ... (原本的連線程式碼) ...
+    # (這裡省略重複部分，請保留原本的 search 邏輯)
+    # 為了完整性，下面補上精簡版：
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(query, (end_date, start_date))
+        rooms = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(rooms)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# API: 建立訂房 (改為從 Session 抓 guest_id)
+@app.route('/api/book', methods=['POST'])
+def create_booking():
+    if 'user' not in session:
+        return jsonify({"error": "請先登入"}), 401
+
+    data = request.json
+    room_id = data.get('room_id')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+    guest_id = session['user']['guest_id']
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # 計算價格
+    cur.execute("SELECT base_price FROM rooms r JOIN room_types t ON r.type_id = t.type_id WHERE r.room_id = %s", (room_id,))
+    price = cur.fetchone()['base_price']
+    
+    # 寫入訂單
+    cur.execute(
+        """INSERT INTO reservations (guest_id, room_id, check_in_date, check_out_date, total_price, status) 
+           VALUES (%s, %s, %s, %s, %s, 'Confirmed') RETURNING reservation_id""",
+        (guest_id, room_id, start_date, end_date, float(price))
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "訂房成功"})
+
+# API: 取得我的訂單
+@app.route('/api/my-bookings')
+def my_bookings():
+    if 'user' not in session:
+        return jsonify([])
+
+    guest_id = session['user']['guest_id']
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT res.*, r.room_number, t.type_name 
+        FROM reservations res
+        JOIN rooms r ON res.room_id = r.room_id
+        JOIN room_types t ON r.type_id = t.type_id
+        WHERE res.guest_id = %s
+        ORDER BY res.created_at DESC
+    """, (guest_id,))
+    bookings = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(bookings)
+
+# API: 取消訂單
+@app.route('/api/cancel', methods=['POST'])
+def cancel_booking():
+    if 'user' not in session:
+        return jsonify({"error": "請先登入"}), 401
+
+    data = request.json
+    reservation_id = data.get('reservation_id')
+    guest_id = session['user']['guest_id']
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # 執行取消 (狀態改為 Cancelled)
+    # 必須檢查 guest_id 以防改到別人的訂單
+    cur.execute("""
+        UPDATE reservations 
+        SET status = 'Cancelled' 
+        WHERE reservation_id = %s AND guest_id = %s
+    """, (reservation_id, guest_id))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "訂單已取消"})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
