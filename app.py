@@ -118,24 +118,37 @@ def create_booking():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # 查價格
+    # 1. 查房價
     cur.execute("SELECT base_price FROM rooms r JOIN room_types t ON r.type_id = t.type_id WHERE r.room_id = %s", (room_id,))
     row = cur.fetchone()
     if not row:
         return jsonify({"error": "房間不存在"}), 404
         
-    price = row['base_price']
+    base_price = float(row['base_price'])
+
+    # 2. 計算天數與總價 (關鍵修正)
+    from datetime import datetime
+    # 將字串轉為日期物件
+    d1 = datetime.strptime(start_date, "%Y-%m-%d")
+    d2 = datetime.strptime(end_date, "%Y-%m-%d")
     
-    # 寫入訂單
+    # 計算天數差 (至少算1晚)
+    delta = d2 - d1
+    nights = delta.days
+    if nights < 1: nights = 1
+    
+    total_price = base_price * nights
+    
+    # 3. 寫入訂單 (寫入的是計算後的總價)
     cur.execute(
         """INSERT INTO reservations (guest_id, room_id, check_in_date, check_out_date, total_price, status) 
            VALUES (%s, %s, %s, %s, %s, 'Confirmed') RETURNING reservation_id""",
-        (guest_id, room_id, start_date, end_date, float(price))
+        (guest_id, room_id, start_date, end_date, total_price)
     )
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"message": "訂房成功"})
+    return jsonify({"message": "訂房成功", "total_price": total_price})
 
 # API: 我的訂單列表
 @app.route('/api/my-bookings')
