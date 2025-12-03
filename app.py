@@ -20,64 +20,72 @@ def index():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    data = request.json
-    name = data.get('name')
-    email = data.get('email')
-    phone = data.get('phone')
+    try:
+        data = request.json
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    # 1. 檢查 Email 或 Phone 是否存在
-    cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
-    existing_users = cur.fetchall()
-    
-    user = None
-    
-    if existing_users:
-        # 如果有找到資料，試著匹配
-        for u in existing_users:
-            # 情況 A: 完全匹配 (Email 和 Phone 都對) -> 直接登入
-            if u['email'] == email and u['phone'] == phone:
-                user = u
-                break
-            
-            # 情況 B: Email 對了，但手機不對 -> 更新手機 (視為同一人換手機)
-            if u['email'] == email and u['phone'] != phone:
-                cur.execute("UPDATE guests SET phone = %s WHERE guest_id = %s", (phone, u['guest_id']))
-                conn.commit()
-                u['phone'] = phone
-                user = u
-                break
-
-            # 情況 C: 手機對了，但 Email 不對 -> 更新 Email (視為同一人換 Email)
-            if u['phone'] == phone and u['email'] != email:
-                cur.execute("UPDATE guests SET email = %s WHERE guest_id = %s", (email, u['guest_id']))
-                conn.commit()
-                u['email'] = email
-                user = u
-                break
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        # 如果還是沒匹配到 (例如 A 的 Email 配 B 的 Phone)，報錯
-        if not user:
-            cur.close(); conn.close()
-            return jsonify({"error": "此 Email 或手機已被其他帳號使用，無法合併"}), 409
+        # 1. 檢查 Email 或 Phone 是否存在
+        cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
+        existing_users = cur.fetchall()
+        
+        user = None
+        
+        if existing_users:
+            for u in existing_users:
+                # 情況 A: 完全匹配
+                if u['email'] == email and u['phone'] == phone:
+                    user = u
+                    break
+                
+                # 情況 B: Email 對，手機不對 -> 更新手機
+                if u['email'] == email and u['phone'] != phone:
+                    cur.execute("UPDATE guests SET phone = %s WHERE guest_id = %s", (phone, u['guest_id']))
+                    conn.commit()
+                    u['phone'] = phone
+                    user = u
+                    break
+
+                # 情況 C: 手機對，Email 不對 -> 更新 Email
+                if u['phone'] == phone and u['email'] != email:
+                    cur.execute("UPDATE guests SET email = %s WHERE guest_id = %s", (email, u['guest_id']))
+                    conn.commit()
+                    u['email'] = email
+                    user = u
+                    break
             
-    else:
-        # 2. 完全沒找到 -> 註冊新用戶
-        if not name: return jsonify({"error": "新用戶請填寫姓名"}), 400
-        cur.execute(
-            "INSERT INTO guests (name, email, phone, identification_number) VALUES (%s, %s, %s, 'N/A') RETURNING *",
-            (name, email, phone)
-        )
-        user = cur.fetchone()
-        conn.commit()
+            if not user:
+                cur.close(); conn.close()
+                return jsonify({"error": "此 Email 或手機已被其他帳號使用"}), 409
+                
+        else:
+            # 2. 註冊新用戶
+            if not name:
+                cur.close(); conn.close()
+                return jsonify({"error": "新用戶請填寫姓名"}), 400
+                
+            # 這裡務必確認資料庫欄位是 name 不是 first_name
+            cur.execute(
+                "INSERT INTO guests (name, email, phone, identification_number) VALUES (%s, %s, %s, 'N/A') RETURNING *",
+                (name, email, phone)
+            )
+            user = cur.fetchone()
+            conn.commit()
 
-    cur.close()
-    conn.close()
+        cur.close()
+        conn.close()
 
-    session['user'] = user
-    return jsonify({"message": "登入成功", "user": user})
+        session['user'] = user
+        return jsonify({"message": "登入成功", "user": user})
+        
+    except Exception as e:
+        print("Login Error:", e) # 這行會印在 Render Log 裡方便除錯
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/api/logout')
 def logout():
