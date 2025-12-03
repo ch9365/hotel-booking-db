@@ -112,6 +112,11 @@ function init() {
     } else {
         area.innerHTML = `<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">會員登入</button>`;
     }
+    const today = new Date().toISOString().split('T')[0];
+    const birthInput = document.getElementById('pfBirth');
+    if (birthInput) {
+        birthInput.max = today; // 設定最大值為今天
+    }
 }
 init();
 
