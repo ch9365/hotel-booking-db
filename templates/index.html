@@ -113,17 +113,39 @@ function init() {
 init();
 
 async function doLogin() {
-    const res = await fetch('/api/login', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-            name: document.getElementById('loginName').value,
-            email: document.getElementById('loginEmail').value,
-            phone: document.getElementById('loginPhone').value
-        })
-    });
-    if(res.ok) location.reload();
-    else alert((await res.json()).error);
+    console.log("按鈕被點擊了！"); // 測試點 1
+
+    const name = document.getElementById('loginName').value;
+    const email = document.getElementById('loginEmail').value;
+    const phone = document.getElementById('loginPhone').value;
+    
+    console.log("抓到的資料：", name, email, phone); // 測試點 2
+
+    // 如果這邊有任何欄位抓不到 (null)，程式就會在這裡報錯停住
+    
+    if(!email || !phone) return alert('請完整填寫 Email 和 手機'); // 這裡我們改鬆一點，只檢查必填
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, email, phone})
+        });
+        
+        console.log("API 回應狀態：", res.status); // 測試點 3
+
+        if(res.ok) {
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.error);
+        }
+    } catch (e) {
+        console.error("發生錯誤：", e); // 抓出任何隱藏的錯誤
+        alert("系統錯誤，請檢查 Console");
+    }
 }
+
 
 async function searchRooms() {
     const s=document.getElementById('startDate').value, e=document.getElementById('endDate').value, c=document.getElementById('capacity').value;
