@@ -92,6 +92,14 @@ function init() {
     if (curUser) {
         area.innerHTML = `<span class="me-2">Hi, <strong>${curUser.name}</strong></span> <a href="/api/logout" class="btn btn-sm btn-outline-secondary">登出</a>`;
         
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').min = today;
+        
+        // 當選擇入住日期後，退房日期自動設為入住日期的隔天
+        document.getElementById('startDate').addEventListener('change', function() {
+            document.getElementById('endDate').min = this.value;
+        });
+
         // 檢查是否有暫存的訂房請求
         const pending = localStorage.getItem('pendingBooking');
         if (pending) {
@@ -108,17 +116,39 @@ function init() {
 init();
 
 async function doLogin() {
-    const res = await fetch('/api/login', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-            name: document.getElementById('loginName').value,
-            email: document.getElementById('loginEmail').value,
-            phone: document.getElementById('loginPhone').value
-        })
-    });
-    if(res.ok) location.reload();
-    else alert((await res.json()).error);
+    const name = document.getElementById('loginName').value;
+    const email = document.getElementById('loginEmail').value;
+    const phone = document.getElementById('loginPhone').value;
+    
+    if(!email || !phone) return alert('請完整填寫 Email 和 手機');
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, email, phone})
+        });
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            // 如果回傳的不是 JSON (例如 500 Error HTML)，把它印出來
+            const text = await res.text();
+            throw new Error("Server Error: " + text.substring(0, 100)); // 只顯示前100字避免太長
+        }
+
+        const data = await res.json();
+
+        if(res.ok) {
+            location.reload();
+        } else {
+            alert("登入失敗: " + data.error);
+        }
+    } catch (e) {
+        // 這裡會把詳細錯誤顯示在彈跳視窗
+        alert("系統發生錯誤:\n" + e.message);
+    }
 }
+
 
 async function searchRooms() {
     const s=document.getElementById('startDate').value, e=document.getElementById('endDate').value, c=document.getElementById('capacity').value;
