@@ -70,7 +70,7 @@ def login():
                 
             # 這裡務必確認資料庫欄位是 name 不是 first_name
             cur.execute(
-                "INSERT INTO guests (name, email, phone, identification_number) VALUES (%s, %s, %s, 'N/A') RETURNING *",
+                "INSERT INTO guests (name, email, phone) VALUES (%s, %s, %s) RETURNING *",
                 (name, email, phone)
             )
             user = cur.fetchone()
