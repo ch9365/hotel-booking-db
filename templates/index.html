@@ -89,17 +89,33 @@ let curUser = {{ user|tojson|safe }};
 
 function init() {
     const area = document.getElementById('userArea');
+    const today = new Date().toISOString().split('T')[0]; // 1. 先定義 today
+
+    // --- 設定搜尋日期限制 (不管有沒有登入都要做) ---
+    const startInput = document.getElementById('startDate');
+    const endInput = document.getElementById('endDate');
+    
+    if (startInput) {
+        startInput.min = today;
+        startInput.addEventListener('change', function() {
+            endInput.min = this.value;
+            // 為了更友善，如果不小心選了比入住日早的退房日，自動清空退房日
+            if (endInput.value && endInput.value < this.value) {
+                endInput.value = '';
+            }
+        });
+    }
+
+    // --- 設定生日限制 (不管有沒有登入都要做) ---
+    const birthInput = document.getElementById('pfBirth');
+    if (birthInput) {
+        birthInput.max = today;
+    }
+
+    // --- 登入狀態判斷 ---
     if (curUser) {
         area.innerHTML = `<span class="me-2">Hi, <strong>${curUser.name}</strong></span> <a href="/api/logout" class="btn btn-sm btn-outline-secondary">登出</a>`;
         
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('startDate').min = today;
-        
-        // 當選擇入住日期後，退房日期自動設為入住日期的隔天
-        document.getElementById('startDate').addEventListener('change', function() {
-            document.getElementById('endDate').min = this.value;
-        });
-
         // 檢查是否有暫存的訂房請求
         const pending = localStorage.getItem('pendingBooking');
         if (pending) {
@@ -111,11 +127,6 @@ function init() {
         }
     } else {
         area.innerHTML = `<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">會員登入</button>`;
-    }
-    const today = new Date().toISOString().split('T')[0];
-    const birthInput = document.getElementById('pfBirth');
-    if (birthInput) {
-        birthInput.max = today; // 設定最大值為今天
     }
 }
 init();
