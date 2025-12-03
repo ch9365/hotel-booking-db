@@ -28,22 +28,44 @@ def login():
     conn = get_db_connection()
     cur = conn.cursor()
     
+    # 1. 檢查 Email 或 Phone 是否存在
     cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
     existing_users = cur.fetchall()
     
     user = None
+    
     if existing_users:
+        # 如果有找到資料，試著匹配
         for u in existing_users:
+            # 情況 A: 完全匹配 (Email 和 Phone 都對) -> 直接登入
             if u['email'] == email and u['phone'] == phone:
                 user = u
                 break
+            
+            # 情況 B: Email 對了，但手機不對 -> 更新手機 (視為同一人換手機)
+            if u['email'] == email and u['phone'] != phone:
+                cur.execute("UPDATE guests SET phone = %s WHERE guest_id = %s", (phone, u['guest_id']))
+                conn.commit()
+                u['phone'] = phone
+                user = u
+                break
+
+            # 情況 C: 手機對了，但 Email 不對 -> 更新 Email (視為同一人換 Email)
+            if u['phone'] == phone and u['email'] != email:
+                cur.execute("UPDATE guests SET email = %s WHERE guest_id = %s", (email, u['guest_id']))
+                conn.commit()
+                u['email'] = email
+                user = u
+                break
         
+        # 如果還是沒匹配到 (例如 A 的 Email 配 B 的 Phone)，報錯
         if not user:
             cur.close(); conn.close()
-            return jsonify({"error": "此 Email 或手機已被使用且資料不匹配"}), 409
+            return jsonify({"error": "此 Email 或手機已被其他帳號使用，無法合併"}), 409
+            
     else:
-        if not name: return jsonify({"error": "請填寫姓名"}), 400
-        # 修改點：只存 name
+        # 2. 完全沒找到 -> 註冊新用戶
+        if not name: return jsonify({"error": "新用戶請填寫姓名"}), 400
         cur.execute(
             "INSERT INTO guests (name, email, phone, identification_number) VALUES (%s, %s, %s, 'N/A') RETURNING *",
             (name, email, phone)
@@ -51,7 +73,9 @@ def login():
         user = cur.fetchone()
         conn.commit()
 
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
+
     session['user'] = user
     return jsonify({"message": "登入成功", "user": user})
 
@@ -77,7 +101,6 @@ def update_profile():
     if 'user' not in session: return jsonify({"error": "未登入"}), 401
     data = request.json
     
-    # 修改點：接收 name
     name = data.get('name')
     email = data.get('email')
     phone = data.get('phone')
@@ -86,7 +109,6 @@ def update_profile():
 
     conn = get_db_connection(); cur = conn.cursor()
     try:
-        # 修改點：更新 name
         cur.execute("""
             UPDATE guests 
             SET name = %s, email = %s, phone = %s, birth_date = %s, gender = %s
@@ -104,7 +126,10 @@ def search_rooms():
     start = request.args.get('start_date')
     end = request.args.get('end_date')
     cap = request.args.get('capacity')
+    
     if not start or not end: return jsonify({"error": "請選日期"}), 400
+    # 【後端防呆】檢查日期順序
+    if start >= end: return jsonify({"error": "退房日期必須晚於入住日期"}), 400
 
     query = """
         SELECT r.room_id, r.room_number, t.type_name, t.base_price, t.description, t.capacity
@@ -133,8 +158,12 @@ def create_booking():
     cur.execute("SELECT base_price FROM rooms r JOIN room_types t ON r.type_id=t.type_id WHERE room_id=%s", (data['room_id'],))
     price = float(cur.fetchone()['base_price'])
     
-    days = (datetime.strptime(data['end_date'], "%Y-%m-%d") - datetime.strptime(data['start_date'], "%Y-%m-%d")).days
+    # 計算天數
+    d1 = datetime.strptime(data['start_date'], "%Y-%m-%d")
+    d2 = datetime.strptime(data['end_date'], "%Y-%m-%d")
+    days = (d2 - d1).days
     if days < 1: days = 1
+    
     total = price * days
     
     cur.execute("INSERT INTO reservations (guest_id, room_id, check_in_date, check_out_date, total_price, status) VALUES (%s, %s, %s, %s, %s, 'Confirmed')",
