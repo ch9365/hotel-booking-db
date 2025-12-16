@@ -333,7 +333,7 @@
             }
         }
 
-        // 搜尋房間 (分組顯示 + 下拉選單)
+                // 搜尋房間 (分組顯示 + 下拉選單 + 剩餘數量)
         async function searchRooms() {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -353,18 +353,25 @@
 
                 // groupedRooms 回傳的是 [{ type_name:..., available_rooms: [...] }, ...]
                 groupedRooms.forEach((group, index) => {
+                    // 計算剩餘間數
+                    const remainingCount = group.available_rooms.length;
+                    
                     // 產生下拉選單選項
                     let optionsHtml = '';
                     group.available_rooms.forEach(r => {
                         optionsHtml += `<option value="${r.room_id}">${r.room_number}</option>`;
                     });
+                    
+                    // 根據剩餘數量決定顏色 (少於3間顯示紅色警告)
+                    const countBadgeClass = remainingCount < 3 ? 'bg-danger' : 'bg-success';
 
-                    // 產生卡片 HTML (無圖片)
+                    // 產生卡片 HTML
                     list.innerHTML += `
                         <div class="col-md-6 mb-4">
                             <div class="card h-100 shadow-sm border-0">
-                                <div class="card-header bg-dark text-white">
+                                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                                     <h5 class="mb-0">${group.type_name}</h5>
+                                    <span class="badge ${countBadgeClass}">剩餘: ${remainingCount} 間</span>
                                 </div>
                                 <div class="card-body">
                                     <p class="card-text text-muted">${group.description}</p>
@@ -394,6 +401,7 @@
                 console.error(err);
             }
         }
+
 
         // 預訂功能 (配合下拉選單)
         async function bookRoomBySelect(index) {
