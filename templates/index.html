@@ -216,17 +216,26 @@
     <!-- JS Logic -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 初始化：設定日期限制
+        // 初始化：設定日期輸入框的限制
         window.onload = function() {
+            // 取得今天的日期字串，格式為 YYYY-MM-DD
             const today = new Date().toISOString().split('T')[0];
+
+            // 1. 設定搜尋日期的最小值 (不能選過去)
             const startDateInput = document.getElementById('startDate');
             const endDateInput = document.getElementById('endDate');
-            const regBirthInput = document.getElementById('regBirth');
-            
             if(startDateInput) startDateInput.min = today;
             if(endDateInput) endDateInput.min = today;
-            if(regBirthInput) regBirthInput.max = today; // 生日不能是未來
+            
+            // 2. 設定生日的最大值 (不能選未來)
+            const regBirthInput = document.getElementById('regBirth'); // 註冊表單的生日
+            const profileBirthInput = document.getElementById('p_birth'); // 會員資料修改的生日
+
+            // 這行就是你要的功能：max = today
+            if(regBirthInput) regBirthInput.max = today; 
+            if(profileBirthInput) profileBirthInput.max = today;
         };
+
 
         // 當入住日期改變時，連動限制退房日期
         function updateEndDateMin() {
