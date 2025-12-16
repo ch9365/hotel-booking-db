@@ -26,66 +26,78 @@ def login():
         email = data.get('email')
         phone = data.get('phone')
 
+        if not name or not email or not phone:
+            return jsonify({"error": "請輸入完整的姓名、Email 與手機號碼"}), 400
+
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # 1. 檢查 Email 或 Phone 是否存在
-        cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
-        existing_users = cur.fetchall()
+        # 嚴格比對
+        cur.execute("""
+            SELECT * FROM guests 
+            WHERE name = %s AND email = %s AND phone = %s
+        """, (name, email, phone))
         
-        user = None
-        
-        if existing_users:
-            for u in existing_users:
-                # 情況 A: 完全匹配
-                if u['email'] == email and u['phone'] == phone:
-                    user = u
-                    break
-                
-                # 情況 B: Email 對，手機不對 -> 更新手機
-                if u['email'] == email and u['phone'] != phone:
-                    cur.execute("UPDATE guests SET phone = %s WHERE guest_id = %s", (phone, u['guest_id']))
-                    conn.commit()
-                    u['phone'] = phone
-                    user = u
-                    break
-
-                # 情況 C: 手機對，Email 不對 -> 更新 Email
-                if u['phone'] == phone and u['email'] != email:
-                    cur.execute("UPDATE guests SET email = %s WHERE guest_id = %s", (email, u['guest_id']))
-                    conn.commit()
-                    u['email'] = email
-                    user = u
-                    break
-            
-            if not user:
-                cur.close(); conn.close()
-                return jsonify({"error": "此 Email 或手機已被其他帳號使用"}), 409
-                
-        else:
-            # 2. 註冊新用戶
-            if not name:
-                cur.close(); conn.close()
-                return jsonify({"error": "新用戶請填寫姓名"}), 400
-                
-            # 這裡務必確認資料庫欄位是 name 不是 first_name
-            cur.execute(
-                "INSERT INTO guests (name, email, phone) VALUES (%s, %s, %s) RETURNING *",
-                (name, email, phone)
-            )
-            user = cur.fetchone()
-            conn.commit()
-
+        user = cur.fetchone()
         cur.close()
         conn.close()
 
-        session['user'] = user
-        return jsonify({"message": "登入成功", "user": user})
-        
+        if user:
+            if user.get('birth_date'):
+                user['birth_date'] = user['birth_date'].strftime('%Y-%m-%d')
+            session['user'] = user
+            return jsonify({"message": "登入成功", "user": user})
+        else:
+            return jsonify({"error": "資料不正確，請檢查輸入或前往註冊"}), 401
+            
     except Exception as e:
-        print("Login Error:", e) # 這行會印在 Render Log 裡方便除錯
-        return jsonify({"error": str(e)}), 500
+        print("Login Error:", e)
+        return jsonify({"error": "系統錯誤"}), 500
 
+@app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.json
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
+        birth_date = data.get('birth_date') or None
+        gender = data.get('gender') or None
+
+        if not name or not email or not phone:
+            return jsonify({"error": "姓名、Email 與手機為必填欄位"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # 檢查是否重複
+        cur.execute("SELECT * FROM guests WHERE email = %s OR phone = %s", (email, phone))
+        existing = cur.fetchone()
+
+        if existing:
+            cur.close(); conn.close()
+            return jsonify({"error": "此 Email 或手機已註冊過，請直接登入"}), 409
+
+        # 新增用戶
+        cur.execute("""
+            INSERT INTO guests (name, email, phone, birth_date, gender)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING *
+        """, (name, email, phone, birth_date, gender))
+        
+        new_user = cur.fetchone()
+        conn.commit()
+        cur.close(); conn.close()
+
+        if new_user.get('birth_date'):
+            new_user['birth_date'] = new_user['birth_date'].strftime('%Y-%m-%d')
+            
+        session['user'] = new_user
+        return jsonify({"message": "註冊成功", "user": new_user})
+
+    except Exception as e:
+        print("Register Error:", e)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/logout')
 def logout():
@@ -100,7 +112,8 @@ def get_profile():
     user = cur.fetchone()
     cur.close(); conn.close()
     
-    if user.get('birth_date'): user['birth_date'] = user['birth_date'].strftime('%Y-%m-%d')
+    if user and user.get('birth_date'):
+        user['birth_date'] = user['birth_date'].strftime('%Y-%m-%d')
     session['user'] = user
     return jsonify(user)
 
@@ -136,7 +149,6 @@ def search_rooms():
     cap = request.args.get('capacity')
     
     if not start or not end: return jsonify({"error": "請選日期"}), 400
-    # 【後端防呆】檢查日期順序
     if start >= end: return jsonify({"error": "退房日期必須晚於入住日期"}), 400
 
     query = """
@@ -164,9 +176,11 @@ def create_booking():
     
     conn = get_db_connection(); cur = conn.cursor()
     cur.execute("SELECT base_price FROM rooms r JOIN room_types t ON r.type_id=t.type_id WHERE room_id=%s", (data['room_id'],))
-    price = float(cur.fetchone()['base_price'])
+    res = cur.fetchone()
+    if not res: return jsonify({"error": "房間不存在"}), 404
     
-    # 計算天數
+    price = float(res['base_price'])
+    
     d1 = datetime.strptime(data['start_date'], "%Y-%m-%d")
     d2 = datetime.strptime(data['end_date'], "%Y-%m-%d")
     days = (d2 - d1).days

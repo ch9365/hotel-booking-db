@@ -4,297 +4,441 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>飯店訂房系統</title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { padding-top: 20px; background-color: #f8f9fa; }
-        .status-Confirmed { color: green; font-weight: bold; }
-        .status-Cancelled { color: red; text-decoration: line-through; }
+        .hero-section {
+            background: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80') no-repeat center center;
+            background-size: cover;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .hero-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            color: white;
+            text-align: center;
+        }
+        .search-box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-top: -50px;
+            position: relative;
+            z-index: 2;
+        }
     </style>
 </head>
-<body>
-<div class="container">
-    <div class="d-flex justify-content-between mb-4">
-        <h1 class="fw-bold text-primary">飯店訂房系統</h1>
-        <div id="userArea"></div>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">飯店訂房系統</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showSearch()">🔍 搜尋</a></li>
+                    {% if user %}
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showMyBookings()">📅 訂單</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showProfile()">👤 會員 ({{ user.name }})</a></li>
+                    <li class="nav-item"><a class="nav-link text-danger" href="/api/logout">登出</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">登入 / 註冊</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="display-4 fw-bold">享受完美的住宿體驗</h1>
+            <p class="lead">無論是商務出差還是度假旅行，我們都是您的最佳選擇</p>
+        </div>
     </div>
-    
-    <ul class="nav nav-pills mb-3">
-        <li class="nav-item"><button class="nav-link active" id="search-tab" data-bs-toggle="tab" data-bs-target="#search-pane">🔍 搜尋</button></li>
-        <li class="nav-item"><button class="nav-link" id="booking-tab" data-bs-toggle="tab" data-bs-target="#booking-pane" onclick="loadBookings()">📅 訂單</button></li>
-        <li class="nav-item"><button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-pane" onclick="loadProfile()">👤 會員</button></li>
-    </ul>
 
-    <div class="tab-content">
-        <!-- 搜尋 -->
-        <div class="tab-pane fade show active" id="search-pane">
-            <div class="card p-4 mb-4">
-                <div class="row g-3">
-                    <div class="col-md-3"><label class="fw-bold">入住</label><input type="date" id="startDate" class="form-control"></div>
-                    <div class="col-md-3"><label class="fw-bold">退房</label><input type="date" id="endDate" class="form-control"></div>
-                    <div class="col-md-3"><label class="fw-bold">人數</label>
-                        <select id="capacity" class="form-select">
-                            <option value="0">不限</option><option value="2">2人</option><option value="4">4人</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3 align-self-end"><button onclick="searchRooms()" class="btn btn-primary w-100">搜尋</button></div>
+    <div class="container mb-5">
+        <!-- 搜尋區塊 -->
+        <div id="search-section" class="search-box">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">入住日期</label>
+                    <input type="date" class="form-control" id="startDate">
                 </div>
-            </div>
-            <div id="resultsArea" class="row"></div>
-        </div>
-
-        <!-- 訂單 -->
-        <div class="tab-pane fade" id="booking-pane">
-            <div class="card p-4">
-                <h4 class="mb-3">我的預訂紀錄</h4>
-                <div id="bookingList" class="list-group"></div>
-            </div>
-        </div>
-
-        <!-- 會員 -->
-        <div class="tab-pane fade" id="profile-pane">
-            <div class="card p-4 mx-auto" style="max-width:500px">
-                <h4 class="mb-3">會員資料</h4>
-                <div class="mb-3"><label>姓名</label><input type="text" id="pfName" class="form-control"></div>
-                <div class="mb-3"><label>Email</label><input type="email" id="pfEmail" class="form-control"></div>
-                <div class="mb-3"><label>手機</label><input type="text" id="pfPhone" class="form-control"></div>
-                <div class="mb-3"><label>生日</label><input type="date" id="pfBirth" class="form-control"></div>
-                <div class="mb-3"><label>性別</label>
-                    <select id="pfGender" class="form-select">
-                        <option value="">請選擇</option><option value="Male">男</option><option value="Female">女</option>
+                <div class="col-md-3">
+                    <label class="form-label">退房日期</label>
+                    <input type="date" class="form-control" id="endDate">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">人數</label>
+                    <select class="form-select" id="capacity">
+                        <option value="0">不限</option>
+                        <option value="1">1人</option>
+                        <option value="2">2人</option>
+                        <option value="4">4人</option>
                     </select>
                 </div>
-                <button onclick="saveProfile()" class="btn btn-success w-100">儲存</button>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="searchRooms()">搜尋空房</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 房間列表 -->
+        <div id="room-list" class="row mt-4"></div>
+
+        <!-- 我的訂單 -->
+        <div id="my-bookings" class="mt-4" style="display: none;">
+            <h3>我的預訂紀錄</h3>
+            <div id="booking-list" class="list-group mt-3"></div>
+        </div>
+
+        <!-- 會員資料 -->
+        <div id="profile-section" class="mt-4" style="display: none;">
+            <div class="card mx-auto" style="max-width: 600px;">
+                <div class="card-header bg-info text-white">會員資料修改</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label>姓名</label>
+                        <input type="text" id="p_name" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Email</label>
+                        <input type="email" id="p_email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>手機</label>
+                        <input type="text" id="p_phone" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>生日</label>
+                        <input type="date" id="p_birth" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>性別</label>
+                        <select id="p_gender" class="form-select">
+                            <option value="">請選擇</option>
+                            <option value="Male">男</option>
+                            <option value="Female">女</option>
+                            <option value="Other">其他</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success w-100" onclick="updateProfile()">儲存修改</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 登入 Modal -->
-<div class="modal fade" id="loginModal">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-        <div class="modal-header bg-primary text-white"><h5>會員登入</h5></div>
-        <div class="modal-body p-4">
-            <input type="text" id="loginName" class="form-control mb-3" placeholder="姓名 (新用戶必填)">
-            <input type="email" id="loginEmail" class="form-control mb-3" placeholder="Email">
-            <input type="text" id="loginPhone" class="form-control" placeholder="手機">
-            <div class="text-muted small mt-2">需填寫正確資料以登入舊帳號</div>
-        </div>
-        <div class="modal-footer border-0"><button onclick="doLogin()" class="btn btn-primary w-100">登入 / 註冊</button></div>
-    </div></div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-let curUser = {{ user|tojson|safe }};
-
-function init() {
-    const area = document.getElementById('userArea');
-    const today = new Date().toISOString().split('T')[0]; // 1. 先定義 today
-
-    // --- 設定搜尋日期限制 (不管有沒有登入都要做) ---
-    const startInput = document.getElementById('startDate');
-    const endInput = document.getElementById('endDate');
-    
-    if (startInput) {
-        startInput.min = today;
-        startInput.addEventListener('change', function() {
-            endInput.min = this.value;
-            // 為了更友善，如果不小心選了比入住日早的退房日，自動清空退房日
-            if (endInput.value && endInput.value < this.value) {
-                endInput.value = '';
-            }
-        });
-    }
-
-    // --- 設定生日限制 (不管有沒有登入都要做) ---
-    const birthInput = document.getElementById('pfBirth');
-    if (birthInput) {
-        birthInput.max = today;
-    }
-
-    // --- 登入狀態判斷 ---
-    if (curUser) {
-        area.innerHTML = `<span class="me-2">Hi, <strong>${curUser.name}</strong></span> <a href="/api/logout" class="btn btn-sm btn-outline-secondary">登出</a>`;
-        
-        // 檢查是否有暫存的訂房請求
-        const pending = localStorage.getItem('pendingBooking');
-        if (pending) {
-            const data = JSON.parse(pending);
-            localStorage.removeItem('pendingBooking');
-            document.getElementById('startDate').value = data.start;
-            document.getElementById('endDate').value = data.end;
-            setTimeout(() => { bookRoom(data.roomId, data.roomNum); }, 500);
-        }
-    } else {
-        area.innerHTML = `<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">會員登入</button>`;
-    }
-}
-init();
-
-async function doLogin() {
-    const name = document.getElementById('loginName').value;
-    const email = document.getElementById('loginEmail').value;
-    const phone = document.getElementById('loginPhone').value;
-    
-    if(!email || !phone) return alert('請完整填寫 Email 和 手機');
-
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name, email, phone})
-        });
-        
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            // 如果回傳的不是 JSON (例如 500 Error HTML)，把它印出來
-            const text = await res.text();
-            throw new Error("Server Error: " + text.substring(0, 100)); // 只顯示前100字避免太長
-        }
-
-        const data = await res.json();
-
-        if(res.ok) {
-            location.reload();
-        } else {
-            alert("登入失敗: " + data.error);
-        }
-    } catch (e) {
-        // 這裡會把詳細錯誤顯示在彈跳視窗
-        alert("系統發生錯誤:\n" + e.message);
-    }
-}
-
-
-async function searchRooms() {
-    const s=document.getElementById('startDate').value, e=document.getElementById('endDate').value, c=document.getElementById('capacity').value;
-    if(!s||!e) return alert('請選日期');
-    
-    // 【前端防呆】檢查日期
-    if (s >= e) return alert('退房日期必須晚於入住日期！');
-
-    const res = await fetch(`/api/search?start_date=${s}&end_date=${e}&capacity=${c}`);
-    const rooms = await res.json();
-    const div = document.getElementById('resultsArea'); div.innerHTML='';
-    
-    if(rooms.length===0) { div.innerHTML='<div class="col-12 text-center p-5"><h5>無符合條件空房</h5></div>'; return; }
-
-    const groups={};
-    rooms.forEach(r => {
-        if(!groups[r.type_name]) groups[r.type_name]={info:r, list:[]};
-        groups[r.type_name].list.push(r);
-    });
-
-    Object.keys(groups).forEach(k => {
-        const g = groups[k], info=g.info;
-        let opts = ''; g.list.forEach(r => opts+=`<option value="${r.room_id}">${r.room_number}號</option>`);
-        div.innerHTML += `
-        <div class="col-md-6 mb-4"><div class="card h-100 shadow-sm border-0">
-            <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between">
-                <h4 class="fw-bold">${k}</h4><span class="badge bg-info text-dark">${info.capacity}人</span>
-            </div>
-            <div class="card-body">
-                <h2 class="text-primary fw-bold">$${info.base_price} <small class="fs-6 text-muted">/晚</small></h2>
-                <p class="text-secondary">${info.description}</p>
-                <div class="bg-light p-3 rounded">
-                    <div class="input-group">
-                        <select id="sel-${k}" class="form-select border-primary">${opts}</select>
-                        <button class="btn btn-primary" onclick="bookSelected('${k}')">預訂此房型</button>
+    <!-- Login/Register Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">會員登入</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <!-- 登入表單 -->
+                    <div id="loginForm">
+                        <div class="alert alert-info py-2">需輸入正確的姓名、Email與手機才能登入</div>
+                        <div class="mb-3">
+                            <label>姓名</label>
+                            <input type="text" class="form-control" id="loginName">
+                        </div>
+                        <div class="mb-3">
+                            <label>Email</label>
+                            <input type="email" class="form-control" id="loginEmail">
+                        </div>
+                        <div class="mb-3">
+                            <label>手機</label>
+                            <input type="text" class="form-control" id="loginPhone">
+                        </div>
+                        <button class="btn btn-primary w-100 mb-2" onclick="login()">登入</button>
+                        <div class="text-center">
+                            <a href="#" onclick="toggleAuthMode('register')">還沒帳號？點此註冊</a>
+                        </div>
                     </div>
-                    <div class="mt-2 small text-success">剩餘 ${g.list.length} 間</div>
+
+                    <!-- 註冊表單 (預設隱藏) -->
+                    <div id="registerForm" style="display: none;">
+                        <div class="alert alert-warning py-2">請填寫詳細資料以完成註冊</div>
+                        <div class="mb-2">
+                            <label>姓名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regName">
+                        </div>
+                        <div class="mb-2">
+                            <label>Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="regEmail">
+                        </div>
+                        <div class="mb-2">
+                            <label>手機 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regPhone">
+                        </div>
+                        <div class="mb-2">
+                            <label>生日</label>
+                            <input type="date" class="form-control" id="regBirth">
+                        </div>
+                        <div class="mb-3">
+                            <label>性別</label>
+                            <select class="form-select" id="regGender">
+                                <option value="">請選擇</option>
+                                <option value="Male">男</option>
+                                <option value="Female">女</option>
+                                <option value="Other">其他</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success w-100 mb-2" onclick="register()">註冊並登入</button>
+                        <div class="text-center">
+                            <a href="#" onclick="toggleAuthMode('login')">已有帳號？返回登入</a>
+                        </div>
+                    </div>
+
                 </div>
             </div>
-        </div></div>`;
-    });
-}
+        </div>
+    </div>
 
-function bookSelected(k) {
-    const sel = document.getElementById(`sel-${k}`);
-    bookRoom(sel.value, sel.options[sel.selectedIndex].text);
-}
+    <!-- JS Logic -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 切換登入/註冊模式
+        function toggleAuthMode(mode) {
+            if(mode === 'register') {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'block';
+                document.getElementById('modalTitle').innerText = '新會員註冊';
+            } else {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('modalTitle').innerText = '會員登入';
+            }
+        }
 
-async function bookRoom(roomId, roomNum) {
-    const start = document.getElementById('startDate').value;
-    const end = document.getElementById('endDate').value;
-
-    if(!curUser) { 
-        localStorage.setItem('pendingBooking', JSON.stringify({roomId, roomNum, start, end}));
-        new bootstrap.Modal(document.getElementById('loginModal')).show(); 
-        return; 
-    }
-    
-    const days = (new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24);
-    
-    if(!confirm(`預訂確認：\n房號：${roomNum}\n日期：${start} ~ ${end} (${days}晚)\n\n確定要送出嗎？`)) return;
-
-    const res = await fetch('/api/book', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({room_id: roomId, start_date:start, end_date:end})
-    });
-    
-    if(res.ok) { 
-        const data = await res.json();
-        alert(`🎉 訂房成功！\n總金額：$${data.total_price}`); 
-        document.getElementById('booking-tab').click(); 
-    } else {
-        alert('訂房失敗');
-    }
-}
-
-async function loadBookings() {
-    if(!curUser) return;
-    const res = await fetch('/api/my-bookings');
-    const list = document.getElementById('bookingList'); list.innerHTML='';
-    (await res.json()).forEach(b => {
-        const btn = b.status==='Confirmed' ? `<button onclick="cancel(${b.reservation_id})" class="btn btn-outline-danger btn-sm float-end">取消</button>`:'';
-        const inDate = b.check_in_date.substring(0, 10);
-        const outDate = b.check_out_date.substring(0, 10);
+        // 登入功能
+        async def login() { // JS syntax correction: async function login()
+            // 修正為標準 JS 寫法
+        }
         
-        list.innerHTML += `
-        <div class="list-group-item p-3 border-0 border-bottom">
-            ${btn}
-            <h5 class="mb-1 fw-bold text-dark">${b.type_name} <span class="badge bg-light text-dark border ms-2">${b.room_number}</span></h5>
-            <small class="text-muted">入住：${inDate} | 退房：${outDate}</small><br>
-            <div class="mt-2">
-                <strong class="text-primary fs-5">$${b.total_price}</strong>
-                <span class="ms-3 status-${b.status}">${b.status==='Confirmed'?'✅ 已確認':'❌ 已取消'}</span>
-            </div>
-        </div>`;
-    });
-}
+        async function login() {
+            const name = document.getElementById('loginName').value;
+            const email = document.getElementById('loginEmail').value;
+            const phone = document.getElementById('loginPhone').value;
 
-async function cancel(id) {
-    if(confirm('確定取消訂單？房間將立即釋出。')) {
-        await fetch('/api/cancel', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({reservation_id:id})});
-        alert('已取消');
-        loadBookings();
-    }
-}
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, email, phone })
+            });
 
-async function loadProfile() {
-    if(!curUser) { alert('請先登入'); document.getElementById('search-tab').click(); return; }
-    const u = await (await fetch('/api/profile')).json();
-    document.getElementById('pfName').value=u.name||'';
-    document.getElementById('pfEmail').value=u.email||'';
-    document.getElementById('pfPhone').value=u.phone||'';
-    document.getElementById('pfBirth').value=u.birth_date||'';
-    document.getElementById('pfGender').value=u.gender||'';
-}
+            const data = await res.json();
+            if (res.ok) {
+                alert('登入成功: ' + data.user.name);
+                location.reload();
+            } else {
+                alert(data.error);
+            }
+        }
 
-async function saveProfile() {
-    const res = await fetch('/api/profile', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-            name: document.getElementById('pfName').value,
-            email: document.getElementById('pfEmail').value,
-            phone: document.getElementById('pfPhone').value,
-            birth_date: document.getElementById('pfBirth').value,
-            gender: document.getElementById('pfGender').value
-        })
-    });
-    if(res.ok) { alert('更新成功'); location.reload(); }
-    else alert('更新失敗');
-}
-</script>
+        // 註冊功能
+        async function register() {
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const phone = document.getElementById('regPhone').value;
+            const birth_date = document.getElementById('regBirth').value;
+            const gender = document.getElementById('regGender').value;
+
+            if(!name || !email || !phone) {
+                alert("請填寫必填欄位");
+                return;
+            }
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, email, phone, birth_date, gender })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert('註冊成功！歡迎 ' + data.user.name);
+                location.reload();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        // 搜尋房間
+        async function searchRooms() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const cap = document.getElementById('capacity').value;
+
+            if (!start || !end) return alert("請選擇日期");
+
+            const res = await fetch(`/api/search?start_date=${start}&end_date=${end}&capacity=${cap}`);
+            const rooms = await res.json();
+            
+            if (rooms.error) return alert(rooms.error);
+
+            const list = document.getElementById('room-list');
+            list.innerHTML = rooms.length ? '' : '<div class="col-12 text-center">沒有符合的空房</div>';
+
+            rooms.forEach(r => {
+                list.innerHTML += `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <img src="https://source.unsplash.com/400x300/?hotel,room,${r.type_name}" class="card-img-top" alt="Room">
+                            <div class="card-body">
+                                <h5 class="card-title">${r.type_name} (${r.room_number})</h5>
+                                <p class="card-text">${r.description}</p>
+                                <p class="fw-bold text-primary">價格: $${r.base_price} / 晚</p>
+                                <p class="text-muted"><small>容納: ${r.capacity} 人</small></p>
+                                <button class="btn btn-primary w-100" onclick="bookRoom(${r.room_id})">立即預訂</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            showSection('search-section');
+            document.getElementById('room-list').style.display = 'flex';
+        }
+
+        // 預訂房間
+        async function bookRoom(roomId) {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            
+            if(!confirm(`確定要預訂嗎？\n入住: ${start}\n退房: ${end}`)) return;
+
+            const res = await fetch('/api/book', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ room_id: roomId, start_date: start, end_date: end })
+            });
+            
+            const data = await res.json();
+            if(res.status === 401) {
+                alert("請先登入會員");
+                var myModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                myModal.show();
+            } else if(res.ok) {
+                alert("預訂成功！總金額: $" + data.total_price);
+                showMyBookings();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        // 顯示我的訂單
+        async function showMyBookings() {
+            showSection('my-bookings');
+            const res = await fetch('/api/my-bookings');
+            const bookings = await res.json();
+            const list = document.getElementById('booking-list');
+            list.innerHTML = '';
+            
+            if(bookings.length === 0) {
+                list.innerHTML = '<p class="text-center text-muted">目前沒有訂單</p>';
+                return;
+            }
+
+            bookings.forEach(b => {
+                const statusColor = b.status === 'Cancelled' ? 'text-danger' : 'text-success';
+                const actionBtn = b.status === 'Confirmed' 
+                    ? `<button class="btn btn-sm btn-outline-danger float-end" onclick="cancelBooking(${b.reservation_id})">取消訂單</button>` 
+                    : '<span class="float-end text-muted">無法取消</span>';
+                
+                list.innerHTML += `
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">房號 ${b.room_number} (${b.type_name})</h5>
+                            <small>${b.created_at}</small>
+                        </div>
+                        <p class="mb-1">入住: ${b.check_in_date} | 退房: ${b.check_out_date}</p>
+                        <p class="mb-1 fw-bold">總價: $${b.total_price}</p>
+                        <small class="${statusColor} fw-bold">狀態: ${b.status}</small>
+                        ${actionBtn}
+                    </div>
+                `;
+            });
+        }
+
+        // 取消訂單
+        async function cancelBooking(id) {
+            if(!confirm("確定要取消這筆訂單嗎？")) return;
+            const res = await fetch('/api/cancel', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ reservation_id: id })
+            });
+            if(res.ok) {
+                alert("已取消");
+                showMyBookings();
+            }
+        }
+
+        // 顯示會員資料
+        async function showProfile() {
+            showSection('profile-section');
+            const res = await fetch('/api/profile');
+            if(res.status === 401) return location.reload();
+            const user = await res.json();
+            
+            document.getElementById('p_name').value = user.name;
+            document.getElementById('p_email').value = user.email;
+            document.getElementById('p_phone').value = user.phone;
+            document.getElementById('p_birth').value = user.birth_date || '';
+            document.getElementById('p_gender').value = user.gender || '';
+        }
+
+        // 更新會員資料
+        async function updateProfile() {
+            const data = {
+                name: document.getElementById('p_name').value,
+                email: document.getElementById('p_email').value,
+                phone: document.getElementById('p_phone').value,
+                birth_date: document.getElementById('p_birth').value,
+                gender: document.getElementById('p_gender').value
+            };
+            
+            const res = await fetch('/api/profile', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            
+            if(res.ok) alert("資料已更新");
+            else alert("更新失敗");
+        }
+
+        // 頁面切換 helper
+        function showSection(id) {
+            document.getElementById('search-section').style.display = 'none';
+            document.getElementById('room-list').style.display = 'none';
+            document.getElementById('my-bookings').style.display = 'none';
+            document.getElementById('profile-section').style.display = 'none';
+            
+            document.getElementById(id).style.display = 'block';
+        }
+        function showSearch() { 
+            showSection('search-section'); 
+            document.getElementById('room-list').style.display = 'flex';
+        }
+    </script>
 </body>
 </html>
