@@ -229,28 +229,34 @@
             }
         }
 
-        // 登入功能
-        async def login() { // JS syntax correction: async function login()
-            // 修正為標準 JS 寫法
-        }
-        
+        // 登入功能 (修正版)
         async function login() {
             const name = document.getElementById('loginName').value;
             const email = document.getElementById('loginEmail').value;
             const phone = document.getElementById('loginPhone').value;
 
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, email, phone })
-            });
+            if(!name || !email || !phone) {
+                alert("請填寫所有欄位");
+                return;
+            }
 
-            const data = await res.json();
-            if (res.ok) {
-                alert('登入成功: ' + data.user.name);
-                location.reload();
-            } else {
-                alert(data.error);
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, email, phone })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert('登入成功: ' + data.user.name);
+                    location.reload();
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert("系統錯誤，請檢查網路連線");
+                console.error(err);
             }
         }
 
@@ -263,26 +269,32 @@
             const gender = document.getElementById('regGender').value;
 
             if(!name || !email || !phone) {
-                alert("請填寫必填欄位");
+                alert("請填寫必填欄位 (姓名、Email、手機)");
                 return;
             }
 
-            const res = await fetch('/api/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, email, phone, birth_date, gender })
-            });
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, email, phone, birth_date, gender })
+                });
 
-            const data = await res.json();
-            if (res.ok) {
-                alert('註冊成功！歡迎 ' + data.user.name);
-                location.reload();
-            } else {
-                alert(data.error);
+                const data = await res.json();
+                if (res.ok) {
+                    alert('註冊成功！歡迎 ' + data.user.name);
+                    location.reload();
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert("系統錯誤");
+                console.error(err);
             }
         }
 
-        // 搜尋房間
+        // ... (以下搜尋、訂房等功能保持不變，直接複製原本的即可) ...
+        
         async function searchRooms() {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -318,7 +330,6 @@
             document.getElementById('room-list').style.display = 'flex';
         }
 
-        // 預訂房間
         async function bookRoom(roomId) {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -344,7 +355,6 @@
             }
         }
 
-        // 顯示我的訂單
         async function showMyBookings() {
             showSection('my-bookings');
             const res = await fetch('/api/my-bookings');
@@ -378,7 +388,6 @@
             });
         }
 
-        // 取消訂單
         async function cancelBooking(id) {
             if(!confirm("確定要取消這筆訂單嗎？")) return;
             const res = await fetch('/api/cancel', {
@@ -392,7 +401,6 @@
             }
         }
 
-        // 顯示會員資料
         async function showProfile() {
             showSection('profile-section');
             const res = await fetch('/api/profile');
@@ -406,7 +414,6 @@
             document.getElementById('p_gender').value = user.gender || '';
         }
 
-        // 更新會員資料
         async function updateProfile() {
             const data = {
                 name: document.getElementById('p_name').value,
@@ -426,7 +433,6 @@
             else alert("更新失敗");
         }
 
-        // 頁面切換 helper
         function showSection(id) {
             document.getElementById('search-section').style.display = 'none';
             document.getElementById('room-list').style.display = 'none';
@@ -440,5 +446,6 @@
             document.getElementById('room-list').style.display = 'flex';
         }
     </script>
+
 </body>
 </html>
