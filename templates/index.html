@@ -215,7 +215,7 @@
 
     <!-- JS Logic -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+        <script>
         // 切換登入/註冊模式
         function toggleAuthMode(mode) {
             if(mode === 'register') {
@@ -229,7 +229,7 @@
             }
         }
 
-        // 登入功能 (修正版)
+        // 登入功能
         async function login() {
             const name = document.getElementById('loginName').value;
             const email = document.getElementById('loginEmail').value;
@@ -255,8 +255,8 @@
                     alert(data.error);
                 }
             } catch (err) {
-                alert("系統錯誤，請檢查網路連線");
                 console.error(err);
+                alert("連線錯誤");
             }
         }
 
@@ -288,13 +288,12 @@
                     alert(data.error);
                 }
             } catch (err) {
-                alert("系統錯誤");
                 console.error(err);
+                alert("連線錯誤");
             }
         }
 
-        // ... (以下搜尋、訂房等功能保持不變，直接複製原本的即可) ...
-        
+        // 搜尋房間
         async function searchRooms() {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -302,118 +301,143 @@
 
             if (!start || !end) return alert("請選擇日期");
 
-            const res = await fetch(`/api/search?start_date=${start}&end_date=${end}&capacity=${cap}`);
-            const rooms = await res.json();
-            
-            if (rooms.error) return alert(rooms.error);
+            try {
+                const res = await fetch(`/api/search?start_date=${start}&end_date=${end}&capacity=${cap}`);
+                const rooms = await res.json();
+                
+                if (rooms.error) return alert(rooms.error);
 
-            const list = document.getElementById('room-list');
-            list.innerHTML = rooms.length ? '' : '<div class="col-12 text-center">沒有符合的空房</div>';
+                const list = document.getElementById('room-list');
+                list.innerHTML = rooms.length ? '' : '<div class="col-12 text-center">沒有符合的空房</div>';
 
-            rooms.forEach(r => {
-                list.innerHTML += `
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100">
-                            <img src="https://source.unsplash.com/400x300/?hotel,room,${r.type_name}" class="card-img-top" alt="Room">
-                            <div class="card-body">
-                                <h5 class="card-title">${r.type_name} (${r.room_number})</h5>
-                                <p class="card-text">${r.description}</p>
-                                <p class="fw-bold text-primary">價格: $${r.base_price} / 晚</p>
-                                <p class="text-muted"><small>容納: ${r.capacity} 人</small></p>
-                                <button class="btn btn-primary w-100" onclick="bookRoom(${r.room_id})">立即預訂</button>
+                rooms.forEach(r => {
+                    list.innerHTML += `
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <img src="https://source.unsplash.com/400x300/?hotel,room,${r.type_name}" class="card-img-top" alt="Room">
+                                <div class="card-body">
+                                    <h5 class="card-title">${r.type_name} (${r.room_number})</h5>
+                                    <p class="card-text">${r.description}</p>
+                                    <p class="fw-bold text-primary">價格: $${r.base_price} / 晚</p>
+                                    <p class="text-muted"><small>容納: ${r.capacity} 人</small></p>
+                                    <button class="btn btn-primary w-100" onclick="bookRoom(${r.room_id})">立即預訂</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-            });
-            showSection('search-section');
-            document.getElementById('room-list').style.display = 'flex';
+                    `;
+                });
+                showSection('search-section');
+                document.getElementById('room-list').style.display = 'flex';
+            } catch (err) {
+                console.error(err);
+            }
         }
 
+        // 預訂房間
         async function bookRoom(roomId) {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
             
             if(!confirm(`確定要預訂嗎？\n入住: ${start}\n退房: ${end}`)) return;
 
-            const res = await fetch('/api/book', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ room_id: roomId, start_date: start, end_date: end })
-            });
-            
-            const data = await res.json();
-            if(res.status === 401) {
-                alert("請先登入會員");
-                var myModal = new bootstrap.Modal(document.getElementById('loginModal'));
-                myModal.show();
-            } else if(res.ok) {
-                alert("預訂成功！總金額: $" + data.total_price);
-                showMyBookings();
-            } else {
-                alert(data.error);
+            try {
+                const res = await fetch('/api/book', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ room_id: roomId, start_date: start, end_date: end })
+                });
+                
+                const data = await res.json();
+                if(res.status === 401) {
+                    alert("請先登入會員");
+                    var myModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                    myModal.show();
+                } else if(res.ok) {
+                    alert("預訂成功！總金額: $" + data.total_price);
+                    showMyBookings();
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                console.error(err);
             }
         }
 
+        // 顯示我的訂單
         async function showMyBookings() {
             showSection('my-bookings');
-            const res = await fetch('/api/my-bookings');
-            const bookings = await res.json();
-            const list = document.getElementById('booking-list');
-            list.innerHTML = '';
-            
-            if(bookings.length === 0) {
-                list.innerHTML = '<p class="text-center text-muted">目前沒有訂單</p>';
-                return;
-            }
-
-            bookings.forEach(b => {
-                const statusColor = b.status === 'Cancelled' ? 'text-danger' : 'text-success';
-                const actionBtn = b.status === 'Confirmed' 
-                    ? `<button class="btn btn-sm btn-outline-danger float-end" onclick="cancelBooking(${b.reservation_id})">取消訂單</button>` 
-                    : '<span class="float-end text-muted">無法取消</span>';
+            try {
+                const res = await fetch('/api/my-bookings');
+                const bookings = await res.json();
+                const list = document.getElementById('booking-list');
+                list.innerHTML = '';
                 
-                list.innerHTML += `
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">房號 ${b.room_number} (${b.type_name})</h5>
-                            <small>${b.created_at}</small>
+                if(bookings.length === 0) {
+                    list.innerHTML = '<p class="text-center text-muted">目前沒有訂單</p>';
+                    return;
+                }
+
+                bookings.forEach(b => {
+                    const statusColor = b.status === 'Cancelled' ? 'text-danger' : 'text-success';
+                    const actionBtn = b.status === 'Confirmed' 
+                        ? `<button class="btn btn-sm btn-outline-danger float-end" onclick="cancelBooking(${b.reservation_id})">取消訂單</button>` 
+                        : '<span class="float-end text-muted">無法取消</span>';
+                    
+                    list.innerHTML += `
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">房號 ${b.room_number} (${b.type_name})</h5>
+                                <small>${b.created_at}</small>
+                            </div>
+                            <p class="mb-1">入住: ${b.check_in_date} | 退房: ${b.check_out_date}</p>
+                            <p class="mb-1 fw-bold">總價: $${b.total_price}</p>
+                            <small class="${statusColor} fw-bold">狀態: ${b.status}</small>
+                            ${actionBtn}
                         </div>
-                        <p class="mb-1">入住: ${b.check_in_date} | 退房: ${b.check_out_date}</p>
-                        <p class="mb-1 fw-bold">總價: $${b.total_price}</p>
-                        <small class="${statusColor} fw-bold">狀態: ${b.status}</small>
-                        ${actionBtn}
-                    </div>
-                `;
-            });
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+            }
         }
 
+        // 取消訂單
         async function cancelBooking(id) {
             if(!confirm("確定要取消這筆訂單嗎？")) return;
-            const res = await fetch('/api/cancel', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ reservation_id: id })
-            });
-            if(res.ok) {
-                alert("已取消");
-                showMyBookings();
+            try {
+                const res = await fetch('/api/cancel', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ reservation_id: id })
+                });
+                if(res.ok) {
+                    alert("已取消");
+                    showMyBookings();
+                }
+            } catch (err) {
+                console.error(err);
             }
         }
 
+        // 顯示會員資料
         async function showProfile() {
             showSection('profile-section');
-            const res = await fetch('/api/profile');
-            if(res.status === 401) return location.reload();
-            const user = await res.json();
-            
-            document.getElementById('p_name').value = user.name;
-            document.getElementById('p_email').value = user.email;
-            document.getElementById('p_phone').value = user.phone;
-            document.getElementById('p_birth').value = user.birth_date || '';
-            document.getElementById('p_gender').value = user.gender || '';
+            try {
+                const res = await fetch('/api/profile');
+                if(res.status === 401) return location.reload();
+                const user = await res.json();
+                
+                document.getElementById('p_name').value = user.name;
+                document.getElementById('p_email').value = user.email;
+                document.getElementById('p_phone').value = user.phone;
+                document.getElementById('p_birth').value = user.birth_date || '';
+                document.getElementById('p_gender').value = user.gender || '';
+            } catch (err) {
+                console.error(err);
+            }
         }
 
+        // 更新會員資料
         async function updateProfile() {
             const data = {
                 name: document.getElementById('p_name').value,
@@ -423,16 +447,21 @@
                 gender: document.getElementById('p_gender').value
             };
             
-            const res = await fetch('/api/profile', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            
-            if(res.ok) alert("資料已更新");
-            else alert("更新失敗");
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if(res.ok) alert("資料已更新");
+                else alert("更新失敗");
+            } catch (err) {
+                console.error(err);
+            }
         }
 
+        // 頁面切換 helper
         function showSection(id) {
             document.getElementById('search-section').style.display = 'none';
             document.getElementById('room-list').style.display = 'none';
@@ -446,6 +475,7 @@
             document.getElementById('room-list').style.display = 'flex';
         }
     </script>
+
 
 </body>
 </html>
