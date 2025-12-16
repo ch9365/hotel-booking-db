@@ -460,6 +460,18 @@
                 }
 
                 bookings.forEach(b => {
+                    // 1. 先把日期轉成 YYYY-MM-DD
+                    const d1 = new Date(b.check_in_date);
+                    const d2 = new Date(b.check_out_date);
+                    
+                    const inDateStr = d1.getFullYear() + '-' + (d1.getMonth()+1).toString().padStart(2,'0') + '-' + d1.getDate().toString().padStart(2,'0');
+                    const outDateStr = d2.getFullYear() + '-' + (d2.getMonth()+1).toString().padStart(2,'0') + '-' + d2.getDate().toString().padStart(2,'0');
+
+                    // 2. 手動加上固定的入住/退房時間
+                    // 假設：入住是 15:00，退房是 11:00
+                    const checkInDisplay = `${inDateStr} 15:00`;
+                    const checkOutDisplay = `${outDateStr} 11:00`;
+
                     const statusColor = b.status === 'Cancelled' ? 'text-danger' : 'text-success';
                     const actionBtn = b.status === 'Confirmed' 
                         ? `<button class="btn btn-sm btn-outline-danger float-end" onclick="cancelBooking(${b.reservation_id})">取消訂單</button>` 
@@ -469,15 +481,17 @@
                         <div class="list-group-item">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">房號 ${b.room_number} (${b.type_name})</h5>
-                                <small>${b.created_at}</small>
+                                <small class="text-muted">訂單成立: ${new Date(b.created_at).toLocaleDateString()}</small>
                             </div>
-                            <p class="mb-1">入住: ${b.check_in_date} | 退房: ${b.check_out_date}</p>
+                            <!-- 這裡改成顯示加上時間的版本 -->
+                            <p class="mb-1">入住: ${checkInDisplay} | 退房: ${checkOutDisplay}</p>
                             <p class="mb-1 fw-bold">總價: $${b.total_price}</p>
                             <small class="${statusColor} fw-bold">狀態: ${b.status}</small>
                             ${actionBtn}
                         </div>
                     `;
                 });
+
             } catch (err) {
                 console.error(err);
             }
