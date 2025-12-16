@@ -149,25 +149,67 @@ def search_rooms():
     cap = request.args.get('capacity')
     
     if not start or not end: return jsonify({"error": "請選日期"}), 400
+    
+    # 後端防呆：日期邏輯
+    today = datetime.now().strftime('%Y-%m-%d')
+    if start < today: return jsonify({"error": "入住日期不能是過去"}), 400
     if start >= end: return jsonify({"error": "退房日期必須晚於入住日期"}), 400
 
-    query = """
-        SELECT r.room_id, r.room_number, t.type_name, t.base_price, t.description, t.capacity
-        FROM rooms r JOIN room_types t ON r.type_id = t.type_id
-        WHERE r.room_id NOT IN (
-            SELECT room_id FROM reservations WHERE status != 'Cancelled'
-            AND check_in_date < %s AND check_out_date > %s
-        )
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. 找出這段時間已被預訂的房間 ID
+    query_booked = """
+        SELECT room_id FROM reservations 
+        WHERE status != 'Cancelled'
+        AND check_in_date < %s AND check_out_date > %s
     """
-    params = [end, start]
-    if cap and int(cap)>0: query+=" AND t.capacity >= %s"; params.append(cap)
-    query+=" ORDER BY t.base_price"
+    cur.execute(query_booked, (end, start))
+    booked_room_ids = [r['room_id'] for r in cur.fetchall()]
     
-    conn = get_db_connection(); cur = conn.cursor()
-    cur.execute(query, tuple(params))
-    rooms = cur.fetchall()
+    # 2. 查詢所有房間與房型資訊
+    query_rooms = """
+        SELECT r.room_id, r.room_number, t.type_name, t.base_price, t.description, t.capacity
+        FROM rooms r 
+        JOIN room_types t ON r.type_id = t.type_id
+        ORDER BY t.base_price, r.room_number
+    """
+    cur.execute(query_rooms)
+    all_rooms = cur.fetchall()
     cur.close(); conn.close()
-    return jsonify(rooms)
+
+    # 3. 過濾並分組：把可用房間依「房型」歸類
+    grouped_rooms = {}
+    
+    for r in all_rooms:
+        # 過濾掉人數不足的 (如果有選人數)
+        if cap and int(cap) > 0 and r['capacity'] < int(cap):
+            continue
+            
+        # 過濾掉已被預訂的房間
+        if r['room_id'] in booked_room_ids:
+            continue
+            
+        # 依照房型名稱分組
+        t_name = r['type_name']
+        if t_name not in grouped_rooms:
+            grouped_rooms[t_name] = {
+                'type_name': t_name,
+                'description': r['description'],
+                'base_price': r['base_price'],
+                'capacity': r['capacity'],
+                'available_rooms': [] # 這裡存該房型下所有可用的房間
+            }
+        
+        grouped_rooms[t_name]['available_rooms'].append({
+            'room_id': r['room_id'],
+            'room_number': r['room_number']
+        })
+
+    # 轉換成 List 回傳
+    result = list(grouped_rooms.values())
+    return jsonify(result)
+
 
 @app.route('/api/book', methods=['POST'])
 def create_booking():
