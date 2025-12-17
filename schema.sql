@@ -1,6 +1,6 @@
 -- 如果表格已存在則不重複建立 (方便重複執行)
 
--- 1. 房型表
+--  房型表
 CREATE TABLE IF NOT EXISTS room_types (
     type_id SERIAL PRIMARY KEY,
     type_name VARCHAR(50) NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS room_types (
     capacity INT NOT NULL
 );
 
--- 2. 房間表
+--  房間表
 CREATE TABLE IF NOT EXISTS rooms (
     room_id SERIAL PRIMARY KEY,
     room_number VARCHAR(10) NOT NULL UNIQUE,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     current_status VARCHAR(20) DEFAULT 'Available'
 );
 
--- 3. 顧客表
+--  顧客表
 CREATE TABLE IF NOT EXISTS guests (
     guest_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
@@ -27,15 +27,8 @@ CREATE TABLE IF NOT EXISTS guests (
     identification_number VARCHAR(20)
 );
 
--- 4. 員工表 (預留功能)
-CREATE TABLE IF NOT EXISTS employees (
-    employee_id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'Staff'
-);
 
--- 5. 訂房表 (核心交易表)
+-- 訂房表 (核心交易表)
 CREATE TABLE IF NOT EXISTS reservations (
     reservation_id SERIAL PRIMARY KEY,
     guest_id INT NOT NULL REFERENCES guests(guest_id),
