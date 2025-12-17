@@ -40,14 +40,3 @@ CREATE TABLE IF NOT EXISTS reservations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 測試資料：初始化幾種房型與房間
-INSERT INTO room_types (type_name, base_price, capacity, description) VALUES 
-('標準單人房', 1500.00, 1, '適合背包客的舒適空間'),
-('豪華雙人房', 2800.00, 2, '寬敞空間與城市景觀'),
-('家庭套房', 4500.00, 4, '兩張雙人床，適合全家出遊');
-
--- 避免重複插入錯誤，使用 ON CONFLICT (如果 PostgreSQL 版本較舊可忽略這行，直接執行一次就好)
-INSERT INTO rooms (room_number, type_id) VALUES 
-('101', 1), ('102', 1), 
-('201', 2), ('202', 2), ('203', 2),
-('301', 3);
