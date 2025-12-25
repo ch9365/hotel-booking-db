@@ -9,7 +9,7 @@
     <style>
         /* 自定義 CSS：首頁大圖 (Hero Section) */
         .hero-section {
-            /* {{ url_for(...) }} 是 Flask 的語法，用來產生靜態檔案的路徑 */
+            /* url_for 是 Flask 的語法，用來產生靜態檔案的路徑 */
             background: url("{{ url_for('static', filename='images/Gemini_Generated_hotel_lobby.jpeg') }}") no-repeat center center;
             background-size: cover;
             height: 60vh; /* 高度佔視窗的 60% */
