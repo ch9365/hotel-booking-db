@@ -4,18 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>飯店訂房系統</title>
-    <!-- Bootstrap CSS -->
+    <!-- Bootstrap CSS 框架，快速美化按鈕、表格與排版 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        /* 自定義 CSS：首頁大圖 (Hero Section) */
         .hero-section {
+            /* {{ url_for(...) }} 是 Flask 的語法，用來產生靜態檔案的路徑 */
             background: url("{{ url_for('static', filename='images/Gemini_Generated_hotel_lobby.jpeg') }}") no-repeat center center;
             background-size: cover;
-            height: 60vh;
+            height: 60vh; /* 高度佔視窗的 60% */
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
         }
+
+        /* 黑色半透明遮罩，讓白字更清晰 */
         .hero-overlay {
             background-color: rgba(0, 0, 0, 0.5);
             position: absolute;
@@ -23,10 +27,12 @@
         }
         .hero-content {
             position: relative;
-            z-index: 1;
+            z-index: 1; /* 確保文字浮在遮罩之上 */
             color: white;
             text-align: center;
         }
+
+        /* 搜尋框區塊：往上浮動 (-50px) 創造層次感 */
         .search-box {
             background: white;
             padding: 30px;
@@ -40,7 +46,7 @@
 </head>
 <body class="bg-light">
 
-    <!-- Navbar -->
+    <!-- 導覽列 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">飯店訂房系統</a>
@@ -49,12 +55,18 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    <!-- onclick 事件綁定 JS 函式，切換顯示區塊 -->
                     <li class="nav-item"><a class="nav-link" href="#" onclick="showSearch()">🔍 搜尋</a></li>
                     {% if user %}
+
+                    <!-- Jinja2 語法：後端 Python 判斷 user 是否存在 -->
+                    <!-- 這種寫法是在「伺服器端」就決定好要傳什麼 HTML 給瀏覽器 -->
                     <li class="nav-item"><a class="nav-link" href="#" onclick="showMyBookings()">📅 訂單</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" onclick="showProfile()">👤 會員 ({{ user.name }})</a></li>
                     <li class="nav-item"><a class="nav-link text-danger" href="/api/logout">登出</a></li>
                     {% else %}
+
+                    <!-- data-bs-toggle="modal" 是 Bootstrap 語法，點擊後會彈出視窗 -->
                     <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">登入 / 註冊</a></li>
                     {% endif %}
                 </ul>
@@ -62,7 +74,7 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
+    <!-- 首頁大圖區塊 -->
     <div class="hero-section">
         <div class="hero-overlay"></div>
         <div class="hero-content">
@@ -71,12 +83,12 @@
     </div>
 
     <div class="container mb-5">
-        <!-- 搜尋區塊 -->
+        <!-- 搜尋區塊(預設顯示) -->
         <div id="search-section" class="search-box">
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">入住日期</label>
-                    <!-- 加上 onchange 事件來動態限制退房日期 -->
+                    <!-- onchange: 當使用者選完日期後，自動觸發 updateEndDateMin() -->
                     <input type="date" class="form-control" id="startDate" onchange="updateEndDateMin()">
                 </div>
                 <div class="col-md-3">
@@ -97,16 +109,16 @@
             </div>
         </div>
 
-        <!-- 房間列表 (搜尋結果) -->
+        <!-- 房間列表 (搜尋結果) (JS 動態填入內容) -->
         <div id="room-list" class="row mt-4"></div>
 
-        <!-- 我的訂單 -->
+        <!-- 我的訂單 (預設隱藏 display: none) -->
         <div id="my-bookings" class="mt-4" style="display: none;">
             <h3>我的預訂紀錄</h3>
             <div id="booking-list" class="list-group mt-3"></div>
         </div>
 
-        <!-- 會員資料 -->
+        <!-- 會員資料 (預設隱藏) -->
         <div id="profile-section" class="mt-4" style="display: none;">
             <div class="card mx-auto" style="max-width: 600px;">
                 <div class="card-header bg-info text-white">會員資料修改</div>
@@ -142,7 +154,7 @@
         </div>
     </div>
 
-    <!-- Login/Register Modal -->
+    <!-- 登入/註冊彈跳視窗 -->
     <div class="modal fade" id="loginModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -169,6 +181,7 @@
                         </div>
                         <button class="btn btn-primary w-100 mb-2" onclick="login()">登入</button>
                         <div class="text-center">
+                            <!-- 切換到註冊模式 -->
                             <a href="#" onclick="toggleAuthMode('register')">還沒帳號？點此註冊</a>
                         </div>
                     </div>
@@ -212,7 +225,7 @@
         </div>
     </div>
 
-    <!-- JS Logic -->
+    <!-- 引入 Bootstrap JS (讓 Modal 和 Navbar 功能正常運作) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // 初始化：設定日期輸入框的限制
@@ -229,8 +242,7 @@
             // 2. 設定生日的最大值 (不能選未來)
             const regBirthInput = document.getElementById('regBirth'); // 註冊表單的生日
             const profileBirthInput = document.getElementById('p_birth'); // 會員資料修改的生日
-
-            // 這行就是你要的功能：max = today
+            // max = today
             if(regBirthInput) regBirthInput.max = today; 
             if(profileBirthInput) profileBirthInput.max = today;
         };
@@ -247,14 +259,14 @@
                 const endDateInput = document.getElementById('endDate');
                 endDateInput.min = nextDay;
                 
-                // 如果原本選的日期太早，就幫他改掉
+                // 如果原本選的日期太早，強制修正
                 if(endDateInput.value < nextDay) {
                     endDateInput.value = nextDay;
                 }
             }
         }
 
-        // 切換登入/註冊模式
+        // 切換登入/註冊模式 ( UI 切換邏輯)
         function toggleAuthMode(mode) {
             if(mode === 'register') {
                 document.getElementById('loginForm').style.display = 'none';
@@ -279,16 +291,18 @@
             }
 
             try {
+                // 發送 POST 請求給 Python 後端
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    // 將物件轉為 JSON 字串
                     body: JSON.stringify({ name, email, phone })
                 });
 
                 const data = await res.json();
                 if (res.ok) {
                     alert('登入成功: ' + data.user.name);
-                    location.reload();
+                    location.reload(); // 重新整理頁面以更新 Navbar 狀態
                 } else {
                     alert(data.error);
                 }
@@ -350,12 +364,14 @@
             if (start >= end) return alert("退房日期必須晚於入住日期");
 
             try {
+                // 使用 GET Query String 傳遞參數
                 const res = await fetch(`/api/search?start_date=${start}&end_date=${end}&capacity=${cap}`);
                 const groupedRooms = await res.json();
                 
                 if (groupedRooms.error) return alert(groupedRooms.error);
 
                 const list = document.getElementById('room-list');
+                // 如果回傳是空的，顯示提示
                 list.innerHTML = groupedRooms.length ? '' : '<div class="col-12 text-center">沒有符合的空房</div>';
 
                 // groupedRooms 回傳的是 [{ type_name:..., available_rooms: [...] }, ...]
@@ -372,7 +388,7 @@
                     // 根據剩餘數量決定顏色 (少於3間顯示紅色警告)
                     const countBadgeClass = remainingCount < 3 ? 'bg-danger' : 'bg-success';
 
-                    // 產生卡片 HTML
+                    // 使用 Template Literals (反引號) 組合 HTML 字串，產生卡片 HTML
                     list.innerHTML += `
                         <div class="col-md-6 mb-4">
                             <div class="card h-100 shadow-sm border-0">
@@ -412,10 +428,12 @@
 
         // 預訂功能 (配合下拉選單)
         async function bookRoomBySelect(index) {
+            // 根據傳入的 index 找到對應的下拉選單
             const select = document.getElementById(`roomSelect-${index}`);
             if (!select) return;
             
             const roomId = select.value;
+            // 取得選單文字(房號)
             const roomNumber = select.options[select.selectedIndex].text;
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
@@ -429,6 +447,7 @@
                     body: JSON.stringify({ room_id: roomId, start_date: start, end_date: end })
                 });
                 
+                // 狀態碼 401 代表未登入，強制顯示登入框
                 const data = await res.json();
                 if(res.status === 401) {
                     alert("請先登入會員");
@@ -436,7 +455,7 @@
                     myModal.show();
                 } else if(res.ok) {
                     alert("預訂成功！總金額: $" + data.total_price);
-                    showMyBookings();
+                    showMyBookings(); // 預訂完直接跳轉到訂單頁面
                 } else {
                     alert(data.error);
                 }
@@ -460,19 +479,22 @@
                 }
 
                 bookings.forEach(b => {
-                    // 1. 先把日期轉成 YYYY-MM-DD
+                    // 手動格式化日期字串，避免 JavaScript 自動轉換時區導致日期跑掉
                     const d1 = new Date(b.check_in_date);
                     const d2 = new Date(b.check_out_date);
                     
+                    // .padStart(2,'0') 用來補零，例如 5月 變成 '05'
                     const inDateStr = d1.getFullYear() + '-' + (d1.getMonth()+1).toString().padStart(2,'0') + '-' + d1.getDate().toString().padStart(2,'0');
                     const outDateStr = d2.getFullYear() + '-' + (d2.getMonth()+1).toString().padStart(2,'0') + '-' + d2.getDate().toString().padStart(2,'0');
 
-                    // 2. 手動加上固定的入住/退房時間
-                    // 假設：入住是 15:00，退房是 11:00
+                    // 手動加上固定的入住/退房時間
+                    // 入住是 15:00，退房是 11:00
                     const checkInDisplay = `${inDateStr} 15:00`;
                     const checkOutDisplay = `${outDateStr} 11:00`;
-
+                    
+                    // 根據狀態改變文字顏色 (CSS Class)
                     const statusColor = b.status === 'Cancelled' ? 'text-danger' : 'text-success';
+                    // 只有 Confirm 狀態的訂單才顯示取消按鈕
                     const actionBtn = b.status === 'Confirmed' 
                         ? `<button class="btn btn-sm btn-outline-danger float-end" onclick="cancelBooking(${b.reservation_id})">取消訂單</button>` 
                         : '<span class="float-end text-muted">無法取消</span>';
@@ -508,7 +530,7 @@
                 });
                 if(res.ok) {
                     alert("已取消");
-                    showMyBookings();
+                    showMyBookings(); // 重新整理列表
                 }
             } catch (err) {
                 console.error(err);
@@ -523,6 +545,7 @@
                 if(res.status === 401) return location.reload();
                 const user = await res.json();
                 
+                // 將後端抓回來的資料填入 input
                 document.getElementById('p_name').value = user.name;
                 document.getElementById('p_email').value = user.email;
                 document.getElementById('p_phone').value = user.phone;
@@ -535,6 +558,7 @@
 
         // 更新會員資料
         async function updateProfile() {
+            // 蒐集表單資料
             const data = {
                 name: document.getElementById('p_name').value,
                 email: document.getElementById('p_email').value,
